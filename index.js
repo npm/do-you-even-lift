@@ -77,20 +77,31 @@ async function bundlePackage (pkgDir) {
         })
       ]
     })).generate({name: pkgJson.name, format: 'umd'})
-  } catch (err) {
+  } catch (rollupError) {
     const b = browserify(entry, {
       bare: true,
       bundleExternal: false,
       ignoreMissing: true
     })
-    return new Promise((resolve, reject) => {
-      b.bundle((err, buf) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve({code: buf, map: ''})
-        }
+    try {
+      return await new Promise((resolve, reject) => {
+        b.bundle((err, buf) => {
+          if (err) {
+            reject(err)
+          } else {
+            resolve({code: buf, map: ''})
+          }
+        })
       })
-    })
+    } catch (browserifyError) {
+      throw Object.assign(
+        new Error(
+          `Bundle could not be built. All bundlers failed.\nRollup Error: ${rollupError.message}\nBrowserify Error: ${browserifyError.message}`
+        ), {
+          browserifyError,
+          rollupError
+        }
+      )
+    }
   }
 }
