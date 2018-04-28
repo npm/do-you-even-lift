@@ -35,6 +35,7 @@ async function pkgStats (pkg, opts) {
     await pacote.extract(pkg, pkgDir, opts)
     stats.unpackedSize = await getSize('**/*', pkgDir)
     const bundle = await bundlePackage(pkgDir)
+    stats.bundler = bundle.bundler
     stats.bundleSize = Buffer.from(bundle.code, 'utf8').length
     const minifyResult = babel.transform(bundle.code, {
       presets: ['minify']
@@ -66,7 +67,7 @@ async function bundlePackage (pkgDir) {
   const pkgJson = require(path.join(pkgDir, 'package.json'))
   const entry = path.join(pkgDir, pkgJson.main || pkgJson.module || 'index.js')
   try {
-    return await (await rollup.rollup({
+    return Object.assign(await (await rollup.rollup({
       input: entry,
       onwarn: () => {},
       plugins: [
@@ -76,7 +77,9 @@ async function bundlePackage (pkgDir) {
           exclude: ['node_modules/**'] // no deps -- just this one
         })
       ]
-    })).generate({name: pkgJson.name, format: 'umd'})
+    })).generate({name: pkgJson.name, format: 'umd'}), {
+      bundler: 'rollup'
+    })
   } catch (rollupError) {
     const b = browserify(entry, {
       bare: true,
@@ -89,7 +92,7 @@ async function bundlePackage (pkgDir) {
           if (err) {
             reject(err)
           } else {
-            resolve({code: buf, map: ''})
+            resolve({code: buf, map: '', bundler: 'browserify'})
           }
         })
       })
